@@ -1,0 +1,12 @@
+*.pyc
+__pycache__/
+buildozer.spec.local
+bin/
+.env
+.DS_Store
+.venv
+media_*/
+recorded.wav
+*.wav
+*.jpg
+*.png

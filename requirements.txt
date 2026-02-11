@@ -1,0 +1,10 @@
+kivy==2.2.1
+Pillow==10.3.0
+opencv-python==4.9.0.80
+librosa==0.10.1
+fastdtw==0.3.4
+scipy==1.13.0
+numpy==1.26.4
+google-genai==0.1.0
+python-dotenv==1.0.1
+plyer==2.1.4
