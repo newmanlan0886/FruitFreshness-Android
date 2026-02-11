@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04   # ← 唯一修改：從 latest 改為 22.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
