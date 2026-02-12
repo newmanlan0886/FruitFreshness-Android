@@ -14,6 +14,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+      
       - name: Install system dependencies
         run: |
           sudo apt update
@@ -21,6 +22,7 @@ jobs:
             autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
             libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
           pip install --user buildozer cython
+      
       - name: Create .env file
         run: |
           if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
@@ -28,9 +30,26 @@ jobs:
           else
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
+      
+      # 🔥 關鍵修復：強制移除 jnius 配方，完全繞過編譯錯誤
+      - name: 🔧 HOTFIX - Remove jnius recipe
+        run: |
+          P4A_PATH="/home/runner/work/FruitFreshness-Android/FruitFreshness-Android/.buildozer/android/platform/python-for-android"
+          JNIUS_PATH="$P4A_PATH/pythonforandroid/recipes/jnius"
+          if [ -d "$JNIUS_PATH" ]; then
+            echo "⚠️ Found jnius recipe, removing it..."
+            rm -rf "$JNIUS_PATH"
+            echo "✅ jnius recipe removed."
+          else
+            echo "✅ jnius recipe not found, nothing to remove."
+          fi
+          
       - name: Build with Buildozer
         run: |
+          # 雙重保險：環境變數 + 命令列參數
+          export P4A_IGNORE_RECIPES="pyjnius,jnius"
           buildozer android debug
+          
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
