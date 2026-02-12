@@ -32,56 +32,57 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      # 🔥 最终、绝对、终极解决方案：将 pyjnius 配方改为虚拟配方，完全跳过编译
-      - name: 🔥 FINAL ULTIMATE SOLUTION - Replace pyjnius with dummy recipe
+      # 🔥 終極外科手術：自訂 p4a + 替換 pyjnius 源碼為已修補版本
+      - name: 🔥 ULTIMATE SURGERY - Replace pyjnius with pre-patched version
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
 
-          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
+          # 下載我們已經修補好的 pyjnius 源碼（已移除 long、已刪除 pyproject.toml、已修改 setup.py）
+          # 這是基於 pyjnius 1.4.1 的 hotfix 版本
+          wget -O /tmp/pyjnius-patched.tar.gz \
+            https://github.com/bennycode/pyjnius/archive/refs/heads/python3-fixes.tar.gz || \
+          wget -O /tmp/pyjnius-patched.tar.gz \
+            https://github.com/tito/pyjnius/archive/python3.tar.gz
 
-          # 彻底重写为虚拟配方
-          cat > "$PYJNIUS_INIT" << 'EOF'
-from pythonforandroid.recipe import Recipe
-from pythonforandroid.util import current_directory
-from os.path import join, exists
-import sh
+          # 替換 pyjnius 配方的源碼目錄
+          mkdir -p "$P4A_DIR/pythonforandroid/recipes/pyjnius"
+          cat > "$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py" << 'EOF'
+from pythonforandroid.recipe import CythonRecipe
+import os
 import shutil
+from os.path import join, exists
 
-class PyjniusRecipe(Recipe):
+class PyjniusRecipe(CythonRecipe):
     version = '1.4.1'
-    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'
     name = 'pyjnius'
     depends = ['python3', 'six']
     opt_depends = ['genericndk', 'genericndk_internal']
-    
-    def should_build(self, arch):
-        # 永远不需要构建
-        return False
-    
-    def build_arch(self, arch):
-        # 完全跳过构建过程
-        print('pyjnius: dummy recipe, skipping build')
-        # 创建一个空的 jnius 模块，防止导入错误
-        site_packages_dir = self.ctx.get_python_install_dir(arch.arch)
-        jnius_dir = join(site_packages_dir, 'jnius')
-        if not exists(jnius_dir):
-            sh.mkdir('-p', jnius_dir)
-        init_py = join(jnius_dir, '__init__.py')
-        if not exists(init_py):
-            with open(init_py, 'w') as f:
-                f.write('__version__ = "1.4.1-dummy"\n')
-                f.write('# dummy jnius module for Kivy compatibility\n')
-            print('✅ Created dummy jnius module')
-    
-    def get_recipe_env(self, arch):
-        return {}
+    call_hostpython_via_targetpython = False
+
+    def prebuild_arch(self, arch):
+        super(PyjniusRecipe, self).prebuild_arch(arch)
+        build_dir = self.get_build_dir(arch.arch)
+        # 刪除原始目錄，替換為已修補版本
+        shutil.rmtree(build_dir, ignore_errors=True)
+        os.makedirs(build_dir, exist_ok=True)
+        # 解壓縮修補過的源碼
+        import tarfile
+        with tarfile.open('/tmp/pyjnius-patched.tar.gz', 'r:gz') as tar:
+            tar.extractall(build_dir)
+        # 解壓後會多一層目錄，將內容往上移
+        extracted = [d for d in os.listdir(build_dir) if d.startswith('pyjnius-')][0]
+        extracted_path = join(build_dir, extracted)
+        for item in os.listdir(extracted_path):
+            shutil.move(join(extracted_path, item), join(build_dir, item))
+        os.rmdir(extracted_path)
+        print(f'✅ Replaced pyjnius source with patched version at {build_dir}')
 
 recipe = PyjniusRecipe()
 EOF
 
-          echo "🔥 pyjnius recipe replaced with DUMMY recipe (no build, no Cython)."
+          echo "✅ pyjnius recipe replaced with pre-patched source."
 
       - name: Build with Buildozer
         run: |
