@@ -14,7 +14,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      
+
       - name: Install system dependencies
         run: |
           sudo apt update
@@ -22,7 +22,7 @@ jobs:
             autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
             libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
           pip install --user buildozer cython
-      
+
       - name: Create .env file
         run: |
           if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
@@ -30,15 +30,15 @@ jobs:
           else
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
-      
-      # 🔥 完整修復：同時修補 pyjnius 的兩個檔案，並植入自動修補配方
-      - name: 🔧 FULL HOTFIX - Patch pyjnius recipes and prebuild_arch
+
+      # 🔥 終極完整修復：同時修補 pyjnius 的兩個檔案（jnius_utils.pxi 和 jnius_conversion.pxi）
+      - name: 🔧 FULL HOTFIX - Patch pyjnius recipes with prebuild_arch
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
-          
-          # 直接替換 pyjnius 配方的 __init__.py，加入完整的 prebuild_arch 修補
+
+          # 直接替換 pyjnius 配方的 __init__.py，植入完整的 prebuild_arch 修補
           cat > "$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py" << 'EOF'
 from pythonforandroid.recipe import CythonRecipe
 
@@ -82,14 +82,13 @@ class PyjniusRecipe(CythonRecipe):
 
 recipe = PyjniusRecipe()
 EOF
-          
+
           echo "✅ pyjnius recipe fully patched with both file fixes."
-          
+
       - name: Build with Buildozer
         run: |
-          # 現在 pyjnius 可以順利編譯
           buildozer android debug
-          
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
