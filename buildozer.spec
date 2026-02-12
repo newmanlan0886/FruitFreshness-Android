@@ -18,7 +18,7 @@ android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
 
-# 🔥 關鍵：指定自訂的 p4a 目錄，Buildozer 將不會重新克隆
+# 🔥 使用我們修補過的 python-for-android
 android.p4a_dir = /home/runner/work/p4a
 
 [buildozer]

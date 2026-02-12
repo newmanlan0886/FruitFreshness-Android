@@ -31,26 +31,42 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
       
-      # 🔧 準備自訂 python-for-android 目錄
+      # 🔥 準備自訂 python-for-android，並在 pyjnius 配方中植入自動修補程式
       - name: 📦 Prepare custom p4a with pyjnius hotfix
         run: |
           P4A_DIR="/home/runner/work/p4a"
-          # 確保目錄乾淨
           rm -rf "$P4A_DIR"
-          # 克隆 python-for-android（master 分支）
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
           
-          # 🔥 修復 pyjnius 的 long 型別錯誤（Python 3）
-          JNIUS_FILE="$P4A_DIR/pythonforandroid/recipes/pyjnius/patches/fix_long.patch"
-          # 直接修改 jnius_utils.pxi（比 patch 更直接）
-          sed -i 's/isinstance(arg, long)/isinstance(arg, int)/g' \
-            "$P4A_DIR/pythonforandroid/recipes/pyjnius/jnius/jnius_utils.pxi"
+          # 修改 pyjnius 配方：加入 prebuild_arch，自動將 jnius_utils.pxi 中的 long 改為 int
+          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
           
-          echo "✅ pyjnius hotfix applied."
+          awk -v n=2 '
+          /class PyjniusRecipe\(/ {
+            print;
+            print "    def prebuild_arch(self, arch):";
+            print "        super(PyjniusRecipe, self).prebuild_arch(arch)";
+            print "        import os";
+            print "        from os.path import join, exists";
+            print "        build_dir = self.get_build_dir(arch.arch)";
+            print "        jnius_utils_pxi = join(build_dir, \"jnius\", \"jnius_utils.pxi\")";
+            print "        if exists(jnius_utils_pxi):";
+            print "            with open(jnius_utils_pxi, \"r\") as f:";
+            print "                content = f.read()";
+            print "            content = content.replace(\"isinstance(arg, long)\", \"isinstance(arg, int)\")";
+            print "            with open(jnius_utils_pxi, \"w\") as f:";
+            print "                f.write(content)";
+            print "";
+            next;
+          }
+          { print }
+          ' "$PYJNIUS_INIT" > "${PYJNIUS_INIT}.tmp" && mv "${PYJNIUS_INIT}.tmp" "$PYJNIUS_INIT"
+          
+          echo "✅ pyjnius recipe patched with long→int fix."
           
       - name: Build with Buildozer
         run: |
-          # 不需要任何忽略參數，直接建置
+          # 現在 pyjnius 可以順利編譯，不再報錯
           buildozer android debug
           
       - name: Upload APK
