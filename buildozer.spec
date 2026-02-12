@@ -18,8 +18,8 @@ android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
 
-# 🔥 關鍵修復：強制 python-for-android 忽略 jnius 配方
-p4a_cmdline = --ignore=pyjnius,jnius
+# 🔥 關鍵：指定自訂的 p4a 目錄，Buildozer 將不會重新克隆
+android.p4a_dir = /home/runner/work/p4a
 
 [buildozer]
 log_level = 2

@@ -31,23 +31,26 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
       
-      # 🔥 關鍵修復：強制移除 jnius 配方，完全繞過編譯錯誤
-      - name: 🔧 HOTFIX - Remove jnius recipe
+      # 🔧 準備自訂 python-for-android 目錄
+      - name: 📦 Prepare custom p4a with pyjnius hotfix
         run: |
-          P4A_PATH="/home/runner/work/FruitFreshness-Android/FruitFreshness-Android/.buildozer/android/platform/python-for-android"
-          JNIUS_PATH="$P4A_PATH/pythonforandroid/recipes/jnius"
-          if [ -d "$JNIUS_PATH" ]; then
-            echo "⚠️ Found jnius recipe, removing it..."
-            rm -rf "$JNIUS_PATH"
-            echo "✅ jnius recipe removed."
-          else
-            echo "✅ jnius recipe not found, nothing to remove."
-          fi
+          P4A_DIR="/home/runner/work/p4a"
+          # 確保目錄乾淨
+          rm -rf "$P4A_DIR"
+          # 克隆 python-for-android（master 分支）
+          git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
+          
+          # 🔥 修復 pyjnius 的 long 型別錯誤（Python 3）
+          JNIUS_FILE="$P4A_DIR/pythonforandroid/recipes/pyjnius/patches/fix_long.patch"
+          # 直接修改 jnius_utils.pxi（比 patch 更直接）
+          sed -i 's/isinstance(arg, long)/isinstance(arg, int)/g' \
+            "$P4A_DIR/pythonforandroid/recipes/pyjnius/jnius/jnius_utils.pxi"
+          
+          echo "✅ pyjnius hotfix applied."
           
       - name: Build with Buildozer
         run: |
-          # 雙重保險：環境變數 + 命令列參數
-          export P4A_IGNORE_RECIPES="pyjnius,jnius"
+          # 不需要任何忽略參數，直接建置
           buildozer android debug
           
       - name: Upload APK
