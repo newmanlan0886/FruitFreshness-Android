@@ -31,42 +31,63 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
       
-      # 🔥 準備自訂 python-for-android，並在 pyjnius 配方中植入自動修補程式
-      - name: 📦 Prepare custom p4a with pyjnius hotfix
+      # 🔥 完整修復：同時修補 pyjnius 的兩個檔案，並植入自動修補配方
+      - name: 🔧 FULL HOTFIX - Patch pyjnius recipes and prebuild_arch
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
           
-          # 修改 pyjnius 配方：加入 prebuild_arch，自動將 jnius_utils.pxi 中的 long 改為 int
-          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
+          # 直接替換 pyjnius 配方的 __init__.py，加入完整的 prebuild_arch 修補
+          cat > "$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py" << 'EOF'
+from pythonforandroid.recipe import CythonRecipe
+
+
+class PyjniusRecipe(CythonRecipe):
+    version = '1.4.1'
+    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'
+    name = 'pyjnius'
+
+    depends = ['python3', 'six']
+    opt_depends = ['genericndk', 'genericndk_internal']
+
+    call_hostpython_via_targetpython = False
+
+    def prebuild_arch(self, arch):
+        super(PyjniusRecipe, self).prebuild_arch(arch)
+        import os
+        from os.path import join, exists
+        
+        build_dir = self.get_build_dir(arch.arch)
+        
+        # 修補 jnius_utils.pxi（將 long 改為 int）
+        utils_pxi = join(build_dir, 'jnius', 'jnius_utils.pxi')
+        if exists(utils_pxi):
+            with open(utils_pxi, 'r') as f:
+                content = f.read()
+            content = content.replace('isinstance(arg, long)', 'isinstance(arg, int)')
+            with open(utils_pxi, 'w') as f:
+                f.write(content)
+            print(f'✅ Patched {utils_pxi}')
+        
+        # 修補 jnius_conversion.pxi（將 (int, long) 改為 (int,)）
+        conversion_pxi = join(build_dir, 'jnius', 'jnius_conversion.pxi')
+        if exists(conversion_pxi):
+            with open(conversion_pxi, 'r') as f:
+                content = f.read()
+            content = content.replace('(int, long)', '(int,)')
+            with open(conversion_pxi, 'w') as f:
+                f.write(content)
+            print(f'✅ Patched {conversion_pxi}')
+
+recipe = PyjniusRecipe()
+EOF
           
-          awk -v n=2 '
-          /class PyjniusRecipe\(/ {
-            print;
-            print "    def prebuild_arch(self, arch):";
-            print "        super(PyjniusRecipe, self).prebuild_arch(arch)";
-            print "        import os";
-            print "        from os.path import join, exists";
-            print "        build_dir = self.get_build_dir(arch.arch)";
-            print "        jnius_utils_pxi = join(build_dir, \"jnius\", \"jnius_utils.pxi\")";
-            print "        if exists(jnius_utils_pxi):";
-            print "            with open(jnius_utils_pxi, \"r\") as f:";
-            print "                content = f.read()";
-            print "            content = content.replace(\"isinstance(arg, long)\", \"isinstance(arg, int)\")";
-            print "            with open(jnius_utils_pxi, \"w\") as f:";
-            print "                f.write(content)";
-            print "";
-            next;
-          }
-          { print }
-          ' "$PYJNIUS_INIT" > "${PYJNIUS_INIT}.tmp" && mv "${PYJNIUS_INIT}.tmp" "$PYJNIUS_INIT"
-          
-          echo "✅ pyjnius recipe patched with long→int fix."
+          echo "✅ pyjnius recipe fully patched with both file fixes."
           
       - name: Build with Buildozer
         run: |
-          # 現在 pyjnius 可以順利編譯，不再報錯
+          # 現在 pyjnius 可以順利編譯
           buildozer android debug
           
       - name: Upload APK
