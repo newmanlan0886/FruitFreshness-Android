@@ -18,6 +18,7 @@ android.accept_sdk_license = True
 android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
+android.ignore_java_dependencies = pyjnius
 
 [buildozer]
 log_level = 2
