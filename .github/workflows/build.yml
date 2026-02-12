@@ -31,59 +31,58 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      # 🔥 終極完整修復：同時修補 pyjnius 的兩個檔案（jnius_utils.pxi 和 jnius_conversion.pxi）
-      - name: 🔧 FULL HOTFIX - Patch pyjnius recipes with prebuild_arch
+      # 🔥 終極穩健修復：逐行寫入 pyjnius 配方，完全避開 YAML heredoc 問題
+      - name: 🔧 FULL HOTFIX - Patch pyjnius recipe (robust version)
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
-
-          # 直接替換 pyjnius 配方的 __init__.py，植入完整的 prebuild_arch 修補
-          cat > "$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py" << 'EOF'
-from pythonforandroid.recipe import CythonRecipe
-
-
-class PyjniusRecipe(CythonRecipe):
-    version = '1.4.1'
-    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'
-    name = 'pyjnius'
-
-    depends = ['python3', 'six']
-    opt_depends = ['genericndk', 'genericndk_internal']
-
-    call_hostpython_via_targetpython = False
-
-    def prebuild_arch(self, arch):
-        super(PyjniusRecipe, self).prebuild_arch(arch)
-        import os
-        from os.path import join, exists
-        
-        build_dir = self.get_build_dir(arch.arch)
-        
-        # 修補 jnius_utils.pxi（將 long 改為 int）
-        utils_pxi = join(build_dir, 'jnius', 'jnius_utils.pxi')
-        if exists(utils_pxi):
-            with open(utils_pxi, 'r') as f:
-                content = f.read()
-            content = content.replace('isinstance(arg, long)', 'isinstance(arg, int)')
-            with open(utils_pxi, 'w') as f:
-                f.write(content)
-            print(f'✅ Patched {utils_pxi}')
-        
-        # 修補 jnius_conversion.pxi（將 (int, long) 改為 (int,)）
-        conversion_pxi = join(build_dir, 'jnius', 'jnius_conversion.pxi')
-        if exists(conversion_pxi):
-            with open(conversion_pxi, 'r') as f:
-                content = f.read()
-            content = content.replace('(int, long)', '(int,)')
-            with open(conversion_pxi, 'w') as f:
-                f.write(content)
-            print(f'✅ Patched {conversion_pxi}')
-
-recipe = PyjniusRecipe()
-EOF
-
-          echo "✅ pyjnius recipe fully patched with both file fixes."
+          
+          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
+          # 逐行寫入 __init__.py，保證 YAML 語法正確
+          echo "from pythonforandroid.recipe import CythonRecipe" > "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "class PyjniusRecipe(CythonRecipe):" >> "$PYJNIUS_INIT"
+          echo "    version = '1.4.1'" >> "$PYJNIUS_INIT"
+          echo "    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'" >> "$PYJNIUS_INIT"
+          echo "    name = 'pyjnius'" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "    depends = ['python3', 'six']" >> "$PYJNIUS_INIT"
+          echo "    opt_depends = ['genericndk', 'genericndk_internal']" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "    call_hostpython_via_targetpython = False" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "    def prebuild_arch(self, arch):" >> "$PYJNIUS_INIT"
+          echo "        super(PyjniusRecipe, self).prebuild_arch(arch)" >> "$PYJNIUS_INIT"
+          echo "        import os" >> "$PYJNIUS_INIT"
+          echo "        from os.path import join, exists" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        build_dir = self.get_build_dir(arch.arch)" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 修補 jnius_utils.pxi（將 long 改為 int）" >> "$PYJNIUS_INIT"
+          echo "        utils_pxi = join(build_dir, 'jnius', 'jnius_utils.pxi')" >> "$PYJNIUS_INIT"
+          echo "        if exists(utils_pxi):" >> "$PYJNIUS_INIT"
+          echo "            with open(utils_pxi, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('isinstance(arg, long)', 'isinstance(arg, int)')" >> "$PYJNIUS_INIT"
+          echo "            with open(utils_pxi, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print(f'✅ Patched {utils_pxi}')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 修補 jnius_conversion.pxi（將 (int, long) 改為 (int,)）" >> "$PYJNIUS_INIT"
+          echo "        conversion_pxi = join(build_dir, 'jnius', 'jnius_conversion.pxi')" >> "$PYJNIUS_INIT"
+          echo "        if exists(conversion_pxi):" >> "$PYJNIUS_INIT"
+          echo "            with open(conversion_pxi, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('(int, long)', '(int,)')" >> "$PYJNIUS_INIT"
+          echo "            with open(conversion_pxi, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print(f'✅ Patched {conversion_pxi}')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "recipe = PyjniusRecipe()" >> "$PYJNIUS_INIT"
+          
+          echo "✅ pyjnius recipe fully patched with both file fixes (robust echo method)."
 
       - name: Build with Buildozer
         run: |
