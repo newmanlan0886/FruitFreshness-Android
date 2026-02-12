@@ -12,13 +12,12 @@ osx.kivy_version = 2.2.1
 fullscreen = 0
 android.api = 33
 android.minapi = 21
-android.sdk = 34
 android.ndk = 25b
 android.accept_sdk_license = True
 android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
-android.ignore_java_dependencies = pyjnius
+android.add_src = --ignore pyjnius   # ← 關鍵！跳過 pyjnius 配方
 
 [buildozer]
 log_level = 2
