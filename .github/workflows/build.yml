@@ -108,7 +108,122 @@ EOF
           echo "✅ pyjnius recipe fully patched with ULTIMATE fixes."
 
       - name: Build with Buildozer
+        run: |name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 🔥 安裝系統依賴 + 強制 Cython 0.29.x（與 pyjnius 相容）
+      - name: Install system dependencies
         run: |
+          sudo apt update
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip \
+            autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
+            libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          pip install --user buildozer
+          pip install --user 'cython<3'
+
+      - name: Create .env file
+        run: |
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+          else
+            cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
+          fi
+
+      # 🔥 終極修復：自訂 p4a + pyjnius 三合一修補（逐行寫入，YAML 100% 正確）
+      - name: 🔧 ULTIMATE HOTFIX - Patch pyjnius completely (echo method)
+        run: |
+          P4A_DIR="/home/runner/work/p4a"
+          rm -rf "$P4A_DIR"
+          git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
+
+          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
+
+          # 逐行寫入，完全避免 heredoc 語法問題
+          echo "from pythonforandroid.recipe import CythonRecipe" > "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "class PyjniusRecipe(CythonRecipe):" >> "$PYJNIUS_INIT"
+          echo "    version = '1.4.1'" >> "$PYJNIUS_INIT"
+          echo "    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'" >> "$PYJNIUS_INIT"
+          echo "    name = 'pyjnius'" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "    depends = ['python3', 'six']" >> "$PYJNIUS_INIT"
+          echo "    opt_depends = ['genericndk', 'genericndk_internal']" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "    call_hostpython_via_targetpython = False" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "    def prebuild_arch(self, arch):" >> "$PYJNIUS_INIT"
+          echo "        super(PyjniusRecipe, self).prebuild_arch(arch)" >> "$PYJNIUS_INIT"
+          echo "        import os" >> "$PYJNIUS_INIT"
+          echo "        import shutil" >> "$PYJNIUS_INIT"
+          echo "        from os.path import join, exists" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        build_dir = self.get_build_dir(arch.arch)" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 1. 刪除可能快取的 .eggs 目錄" >> "$PYJNIUS_INIT"
+          echo "        eggs_dir = join(build_dir, '.eggs')" >> "$PYJNIUS_INIT"
+          echo "        if exists(eggs_dir):" >> "$PYJNIUS_INIT"
+          echo "            shutil.rmtree(eggs_dir)" >> "$PYJNIUS_INIT"
+          echo "            print(f'✅ Removed {eggs_dir}')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 2. 修補 jnius_utils.pxi（long → int）" >> "$PYJNIUS_INIT"
+          echo "        utils_pxi = join(build_dir, 'jnius', 'jnius_utils.pxi')" >> "$PYJNIUS_INIT"
+          echo "        if exists(utils_pxi):" >> "$PYJNIUS_INIT"
+          echo "            with open(utils_pxi, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('isinstance(arg, long)', 'isinstance(arg, int)')" >> "$PYJNIUS_INIT"
+          echo "            with open(utils_pxi, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print(f'✅ Patched {utils_pxi}')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 3. 修補 jnius_conversion.pxi（(int, long) → (int,)）" >> "$PYJNIUS_INIT"
+          echo "        conversion_pxi = join(build_dir, 'jnius', 'jnius_conversion.pxi')" >> "$PYJNIUS_INIT"
+          echo "        if exists(conversion_pxi):" >> "$PYJNIUS_INIT"
+          echo "            with open(conversion_pxi, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('(int, long)', '(int,)')" >> "$PYJNIUS_INIT"
+          echo "            with open(conversion_pxi, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print(f'✅ Patched {conversion_pxi}')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 4. 修補 setup.py：移除 Cython setup_requires" >> "$PYJNIUS_INIT"
+          echo "        setup_py = join(build_dir, 'setup.py')" >> "$PYJNIUS_INIT"
+          echo "        if exists(setup_py):" >> "$PYJNIUS_INIT"
+          echo "            with open(setup_py, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace(\"setup_requires=['cython']\", \"setup_requires=[]\")" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('setup_requires=[\"cython\"]', 'setup_requires=[]')" >> "$PYJNIUS_INIT"
+          echo "            with open(setup_py, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print(f'✅ Patched {setup_py} (removed Cython setup_requires)')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "recipe = PyjniusRecipe()" >> "$PYJNIUS_INIT"
+
+          echo "✅ pyjnius recipe fully patched with ULTIMATE fixes (echo method)."
+
+      - name: Build with Buildozer
+        run: |
+          buildozer android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: fruit-freshness-apk
+          path: bin/*.apk
           # 現在 pyjnius 將使用系統 Cython 0.29.x，且不再自動下載 Cython 3.x
           buildozer android debug
 

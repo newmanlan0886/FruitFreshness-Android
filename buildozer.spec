@@ -17,8 +17,6 @@ android.accept_sdk_license = True
 android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
-
-# 🔥 使用自訂修補過的 python-for-android
 android.p4a_dir = /home/runner/work/p4a
 
 [buildozer]
