@@ -17,7 +17,7 @@ android.accept_sdk_license = True
 android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
-android.add_src = --ignore pyjnius   # ← 關鍵！跳過 pyjnius 配方
+android.extra_p4a_args = --ignore pyjnius
 
 [buildozer]
 log_level = 2
