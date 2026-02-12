@@ -15,117 +15,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 🔥 安裝系統依賴 + 強制 Cython 0.29.x（與 pyjnius 相容）
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip \
-            autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
-            libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          pip install --user buildozer
-          pip install --user 'cython<3'   # 關鍵：強制 Cython 0.29.x
-
-      - name: Create .env file
-        run: |
-          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
-            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
-          else
-            cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
-          fi
-
-      # 🔥 終極修復：自訂 p4a + pyjnius 三合一修補（.eggs 刪除 + .pxi 修補 + setup.py 修補）
-      - name: 🔧 ULTIMATE HOTFIX - Patch pyjnius completely
-        run: |
-          P4A_DIR="/home/runner/work/p4a"
-          rm -rf "$P4A_DIR"
-          git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
-          
-          # 逐行寫入 pyjnius 配方，植入完整的 prebuild_arch 修補
-          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
-          cat > "$PYJNIUS_INIT" << 'EOF'
-from pythonforandroid.recipe import CythonRecipe
-
-
-class PyjniusRecipe(CythonRecipe):
-    version = '1.4.1'
-    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'
-    name = 'pyjnius'
-
-    depends = ['python3', 'six']
-    opt_depends = ['genericndk', 'genericndk_internal']
-
-    call_hostpython_via_targetpython = False
-
-    def prebuild_arch(self, arch):
-        super(PyjniusRecipe, self).prebuild_arch(arch)
-        import os
-        import shutil
-        from os.path import join, exists
-        
-        build_dir = self.get_build_dir(arch.arch)
-        
-        # 1. 刪除可能快取的 .eggs 目錄（避免 Cython 3.x 殘留）
-        eggs_dir = join(build_dir, '.eggs')
-        if exists(eggs_dir):
-            shutil.rmtree(eggs_dir)
-            print(f'✅ Removed {eggs_dir}')
-        
-        # 2. 修補 jnius_utils.pxi（將 long 改為 int）
-        utils_pxi = join(build_dir, 'jnius', 'jnius_utils.pxi')
-        if exists(utils_pxi):
-            with open(utils_pxi, 'r') as f:
-                content = f.read()
-            content = content.replace('isinstance(arg, long)', 'isinstance(arg, int)')
-            with open(utils_pxi, 'w') as f:
-                f.write(content)
-            print(f'✅ Patched {utils_pxi}')
-        
-        # 3. 修補 jnius_conversion.pxi（將 (int, long) 改為 (int,)）
-        conversion_pxi = join(build_dir, 'jnius', 'jnius_conversion.pxi')
-        if exists(conversion_pxi):
-            with open(conversion_pxi, 'r') as f:
-                content = f.read()
-            content = content.replace('(int, long)', '(int,)')
-            with open(conversion_pxi, 'w') as f:
-                f.write(content)
-            print(f'✅ Patched {conversion_pxi}')
-        
-        # 4. 修補 setup.py：移除 setup_requires 中的 Cython 依賴
-        setup_py = join(build_dir, 'setup.py')
-        if exists(setup_py):
-            with open(setup_py, 'r') as f:
-                content = f.read()
-            # 移除 setup_requires=['cython'] 或 setup_requires=["cython"]
-            content = content.replace("setup_requires=['cython']", "setup_requires=[]")
-            content = content.replace('setup_requires=["cython"]', 'setup_requires=[]')
-            with open(setup_py, 'w') as f:
-                f.write(content)
-            print(f'✅ Patched {setup_py} (removed Cython setup_requires)')
-
-recipe = PyjniusRecipe()
-EOF
-
-          echo "✅ pyjnius recipe fully patched with ULTIMATE fixes."
-
-      - name: Build with Buildozer
-        run: |name: Build Android APK
-
-on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      # 🔥 安裝系統依賴 + 強制 Cython 0.29.x（與 pyjnius 相容）
       - name: Install system dependencies
         run: |
           sudo apt update
@@ -143,7 +32,7 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      # 🔥 終極修復：自訂 p4a + pyjnius 三合一修補（逐行寫入，YAML 100% 正確）
+      # 🔥 終極修復：自訂 p4a + pyjnius 三合一修補（純 echo 寫入，無 heredoc）
       - name: 🔧 ULTIMATE HOTFIX - Patch pyjnius completely (echo method)
         run: |
           P4A_DIR="/home/runner/work/p4a"
@@ -217,14 +106,6 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          buildozer android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: fruit-freshness-apk
-          path: bin/*.apk
-          # 現在 pyjnius 將使用系統 Cython 0.29.x，且不再自動下載 Cython 3.x
           buildozer android debug
 
       - name: Upload APK
