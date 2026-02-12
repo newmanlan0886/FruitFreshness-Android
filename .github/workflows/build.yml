@@ -32,57 +32,57 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      # 🔥 終極外科手術：自訂 p4a + 替換 pyjnius 源碼為已修補版本
-      - name: 🔥 ULTIMATE SURGERY - Replace pyjnius with pre-patched version
+      # 🔥 終極外科手術：自訂 p4a + 替換 pyjnius 源碼為已修補版本（純 echo 寫入，無 heredoc）
+      - name: 🔥 ULTIMATE SURGERY - Replace pyjnius with pre-patched version (echo method)
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
 
-          # 下載我們已經修補好的 pyjnius 源碼（已移除 long、已刪除 pyproject.toml、已修改 setup.py）
-          # 這是基於 pyjnius 1.4.1 的 hotfix 版本
+          # 下載已修補好的 pyjnius 源碼（已移除 long、已刪除 pyproject.toml、已修改 setup.py）
           wget -O /tmp/pyjnius-patched.tar.gz \
             https://github.com/bennycode/pyjnius/archive/refs/heads/python3-fixes.tar.gz || \
           wget -O /tmp/pyjnius-patched.tar.gz \
             https://github.com/tito/pyjnius/archive/python3.tar.gz
 
-          # 替換 pyjnius 配方的源碼目錄
+          # 替換 pyjnius 配方的 __init__.py（逐行 echo，完全避開 heredoc）
           mkdir -p "$P4A_DIR/pythonforandroid/recipes/pyjnius"
-          cat > "$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py" << 'EOF'
-from pythonforandroid.recipe import CythonRecipe
-import os
-import shutil
-from os.path import join, exists
+          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
 
-class PyjniusRecipe(CythonRecipe):
-    version = '1.4.1'
-    name = 'pyjnius'
-    depends = ['python3', 'six']
-    opt_depends = ['genericndk', 'genericndk_internal']
-    call_hostpython_via_targetpython = False
+          echo "from pythonforandroid.recipe import CythonRecipe" > "$PYJNIUS_INIT"
+          echo "import os" >> "$PYJNIUS_INIT"
+          echo "import shutil" >> "$PYJNIUS_INIT"
+          echo "from os.path import join, exists" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "class PyjniusRecipe(CythonRecipe):" >> "$PYJNIUS_INIT"
+          echo "    version = '1.4.1'" >> "$PYJNIUS_INIT"
+          echo "    name = 'pyjnius'" >> "$PYJNIUS_INIT"
+          echo "    depends = ['python3', 'six']" >> "$PYJNIUS_INIT"
+          echo "    opt_depends = ['genericndk', 'genericndk_internal']" >> "$PYJNIUS_INIT"
+          echo "    call_hostpython_via_targetpython = False" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "    def prebuild_arch(self, arch):" >> "$PYJNIUS_INIT"
+          echo "        super(PyjniusRecipe, self).prebuild_arch(arch)" >> "$PYJNIUS_INIT"
+          echo "        build_dir = self.get_build_dir(arch.arch)" >> "$PYJNIUS_INIT"
+          echo "        # 刪除原始目錄，替換為已修補版本" >> "$PYJNIUS_INIT"
+          echo "        shutil.rmtree(build_dir, ignore_errors=True)" >> "$PYJNIUS_INIT"
+          echo "        os.makedirs(build_dir, exist_ok=True)" >> "$PYJNIUS_INIT"
+          echo "        # 解壓縮修補過的源碼" >> "$PYJNIUS_INIT"
+          echo "        import tarfile" >> "$PYJNIUS_INIT"
+          echo "        with tarfile.open('/tmp/pyjnius-patched.tar.gz', 'r:gz') as tar:" >> "$PYJNIUS_INIT"
+          echo "            tar.extractall(build_dir)" >> "$PYJNIUS_INIT"
+          echo "        # 解壓後會多一層目錄，將內容往上移" >> "$PYJNIUS_INIT"
+          echo "        extracted = [d for d in os.listdir(build_dir) if d.startswith('pyjnius-')][0]" >> "$PYJNIUS_INIT"
+          echo "        extracted_path = join(build_dir, extracted)" >> "$PYJNIUS_INIT"
+          echo "        for item in os.listdir(extracted_path):" >> "$PYJNIUS_INIT"
+          echo "            shutil.move(join(extracted_path, item), join(build_dir, item))" >> "$PYJNIUS_INIT"
+          echo "        os.rmdir(extracted_path)" >> "$PYJNIUS_INIT"
+          echo "        print(f'✅ Replaced pyjnius source with patched version at {build_dir}')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "recipe = PyjniusRecipe()" >> "$PYJNIUS_INIT"
 
-    def prebuild_arch(self, arch):
-        super(PyjniusRecipe, self).prebuild_arch(arch)
-        build_dir = self.get_build_dir(arch.arch)
-        # 刪除原始目錄，替換為已修補版本
-        shutil.rmtree(build_dir, ignore_errors=True)
-        os.makedirs(build_dir, exist_ok=True)
-        # 解壓縮修補過的源碼
-        import tarfile
-        with tarfile.open('/tmp/pyjnius-patched.tar.gz', 'r:gz') as tar:
-            tar.extractall(build_dir)
-        # 解壓後會多一層目錄，將內容往上移
-        extracted = [d for d in os.listdir(build_dir) if d.startswith('pyjnius-')][0]
-        extracted_path = join(build_dir, extracted)
-        for item in os.listdir(extracted_path):
-            shutil.move(join(extracted_path, item), join(build_dir, item))
-        os.rmdir(extracted_path)
-        print(f'✅ Replaced pyjnius source with patched version at {build_dir}')
-
-recipe = PyjniusRecipe()
-EOF
-
-          echo "✅ pyjnius recipe replaced with pre-patched source."
+          echo "✅ pyjnius recipe replaced with pre-patched source (echo method)."
 
       - name: Build with Buildozer
         run: |
