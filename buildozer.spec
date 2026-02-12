@@ -17,7 +17,9 @@ android.accept_sdk_license = True
 android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
-android.extra_p4a_args = --ignore pyjnius
+
+# 🔥 關鍵修復：強制 python-for-android 忽略 jnius 配方
+p4a_cmdline = --ignore=pyjnius,jnius
 
 [buildozer]
 log_level = 2
