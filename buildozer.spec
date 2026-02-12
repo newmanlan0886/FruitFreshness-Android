@@ -14,7 +14,6 @@ android.api = 33
 android.minapi = 21
 android.sdk = 34
 android.ndk = 25b
-android.sdk_path = /usr/local/lib/android/sdk
 android.accept_sdk_license = True
 android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
