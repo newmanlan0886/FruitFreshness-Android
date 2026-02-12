@@ -32,14 +32,13 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      # 🔥 終極自給自足方案：自訂 p4a + 動態修補 pyjnius（永不失效）
-      - name: 🔥 ULTIMATE SELF-CONTAINED FIX - Patch pyjnius on the fly
+      # 🔥 最終極修復：自訂 p4a + 動態修補 pyjnius + 連根拔起 .eggs
+      - name: 🔥 ULTIMATE ROOT_FIX - Patch pyjnius with .eggs removal
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
 
-          # 建立 pyjnius 配方，直接從官方源克隆並手動修補
           mkdir -p "$P4A_DIR/pythonforandroid/recipes/pyjnius"
           PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
 
@@ -59,7 +58,13 @@ jobs:
           echo "        super(PyjniusRecipe, self).prebuild_arch(arch)" >> "$PYJNIUS_INIT"
           echo "        build_dir = self.get_build_dir(arch.arch)" >> "$PYJNIUS_INIT"
           echo "" >> "$PYJNIUS_INIT"
-          echo "        # 1. 強制刪除 pyproject.toml（阻止 PEP 517 自動下載 Cython 3）" >> "$PYJNIUS_INIT"
+          echo "        # 🔥 0. 連根拔起 .eggs 目錄（徹底清除 Cython 3.x 快取）" >> "$PYJNIUS_INIT"
+          echo "        eggs_dir = join(build_dir, '.eggs')" >> "$PYJNIUS_INIT"
+          echo "        if exists(eggs_dir):" >> "$PYJNIUS_INIT"
+          echo "            shutil.rmtree(eggs_dir)" >> "$PYJNIUS_INIT"
+          echo "            print('✅ Removed .eggs directory')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 1. 刪除 pyproject.toml（阻止 PEP 517 自動下載 Cython 3）" >> "$PYJNIUS_INIT"
           echo "        pyproject = join(build_dir, 'pyproject.toml')" >> "$PYJNIUS_INIT"
           echo "        if exists(pyproject):" >> "$PYJNIUS_INIT"
           echo "            os.remove(pyproject)" >> "$PYJNIUS_INIT"
@@ -105,7 +110,7 @@ jobs:
           echo "" >> "$PYJNIUS_INIT"
           echo "recipe = PyjniusRecipe()" >> "$PYJNIUS_INIT"
 
-          echo "✅ pyjnius recipe created with self-contained, never-fail patches."
+          echo "🔥 Ultimate root fix applied: .eggs removed, pyjnius fully patched."
 
       - name: Build with Buildozer
         run: |
