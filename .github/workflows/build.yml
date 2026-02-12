@@ -32,31 +32,24 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      # 🔥 終極外科手術：自訂 p4a + 替換 pyjnius 源碼為已修補版本（純 echo 寫入，無 heredoc）
-      - name: 🔥 ULTIMATE SURGERY - Replace pyjnius with pre-patched version (echo method)
+      # 🔥 終極自給自足方案：自訂 p4a + 動態修補 pyjnius（永不失效）
+      - name: 🔥 ULTIMATE SELF-CONTAINED FIX - Patch pyjnius on the fly
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
 
-          # 下載已修補好的 pyjnius 源碼（已移除 long、已刪除 pyproject.toml、已修改 setup.py）
-          wget -O /tmp/pyjnius-patched.tar.gz \
-            https://github.com/bennycode/pyjnius/archive/refs/heads/python3-fixes.tar.gz || \
-          wget -O /tmp/pyjnius-patched.tar.gz \
-            https://github.com/tito/pyjnius/archive/python3.tar.gz
-
-          # 替換 pyjnius 配方的 __init__.py（逐行 echo，完全避開 heredoc）
+          # 建立 pyjnius 配方，直接從官方源克隆並手動修補
           mkdir -p "$P4A_DIR/pythonforandroid/recipes/pyjnius"
           PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
 
           echo "from pythonforandroid.recipe import CythonRecipe" > "$PYJNIUS_INIT"
-          echo "import os" >> "$PYJNIUS_INIT"
-          echo "import shutil" >> "$PYJNIUS_INIT"
+          echo "import os, shutil, subprocess" >> "$PYJNIUS_INIT"
           echo "from os.path import join, exists" >> "$PYJNIUS_INIT"
-          echo "" >> "$PYJNIUS_INIT"
           echo "" >> "$PYJNIUS_INIT"
           echo "class PyjniusRecipe(CythonRecipe):" >> "$PYJNIUS_INIT"
           echo "    version = '1.4.1'" >> "$PYJNIUS_INIT"
+          echo "    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'" >> "$PYJNIUS_INIT"
           echo "    name = 'pyjnius'" >> "$PYJNIUS_INIT"
           echo "    depends = ['python3', 'six']" >> "$PYJNIUS_INIT"
           echo "    opt_depends = ['genericndk', 'genericndk_internal']" >> "$PYJNIUS_INIT"
@@ -65,24 +58,54 @@ jobs:
           echo "    def prebuild_arch(self, arch):" >> "$PYJNIUS_INIT"
           echo "        super(PyjniusRecipe, self).prebuild_arch(arch)" >> "$PYJNIUS_INIT"
           echo "        build_dir = self.get_build_dir(arch.arch)" >> "$PYJNIUS_INIT"
-          echo "        # 刪除原始目錄，替換為已修補版本" >> "$PYJNIUS_INIT"
-          echo "        shutil.rmtree(build_dir, ignore_errors=True)" >> "$PYJNIUS_INIT"
-          echo "        os.makedirs(build_dir, exist_ok=True)" >> "$PYJNIUS_INIT"
-          echo "        # 解壓縮修補過的源碼" >> "$PYJNIUS_INIT"
-          echo "        import tarfile" >> "$PYJNIUS_INIT"
-          echo "        with tarfile.open('/tmp/pyjnius-patched.tar.gz', 'r:gz') as tar:" >> "$PYJNIUS_INIT"
-          echo "            tar.extractall(build_dir)" >> "$PYJNIUS_INIT"
-          echo "        # 解壓後會多一層目錄，將內容往上移" >> "$PYJNIUS_INIT"
-          echo "        extracted = [d for d in os.listdir(build_dir) if d.startswith('pyjnius-')][0]" >> "$PYJNIUS_INIT"
-          echo "        extracted_path = join(build_dir, extracted)" >> "$PYJNIUS_INIT"
-          echo "        for item in os.listdir(extracted_path):" >> "$PYJNIUS_INIT"
-          echo "            shutil.move(join(extracted_path, item), join(build_dir, item))" >> "$PYJNIUS_INIT"
-          echo "        os.rmdir(extracted_path)" >> "$PYJNIUS_INIT"
-          echo "        print(f'✅ Replaced pyjnius source with patched version at {build_dir}')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 1. 強制刪除 pyproject.toml（阻止 PEP 517 自動下載 Cython 3）" >> "$PYJNIUS_INIT"
+          echo "        pyproject = join(build_dir, 'pyproject.toml')" >> "$PYJNIUS_INIT"
+          echo "        if exists(pyproject):" >> "$PYJNIUS_INIT"
+          echo "            os.remove(pyproject)" >> "$PYJNIUS_INIT"
+          echo "            print('✅ Removed pyproject.toml')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 2. 修補 jnius_utils.pxi（long → int）" >> "$PYJNIUS_INIT"
+          echo "        utils_pxi = join(build_dir, 'jnius', 'jnius_utils.pxi')" >> "$PYJNIUS_INIT"
+          echo "        if exists(utils_pxi):" >> "$PYJNIUS_INIT"
+          echo "            with open(utils_pxi, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('isinstance(arg, long)', 'isinstance(arg, int)')" >> "$PYJNIUS_INIT"
+          echo "            with open(utils_pxi, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print('✅ Patched jnius_utils.pxi')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 3. 修補 jnius_conversion.pxi（(int, long) → (int,)）" >> "$PYJNIUS_INIT"
+          echo "        conversion_pxi = join(build_dir, 'jnius', 'jnius_conversion.pxi')" >> "$PYJNIUS_INIT"
+          echo "        if exists(conversion_pxi):" >> "$PYJNIUS_INIT"
+          echo "            with open(conversion_pxi, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('(int, long)', '(int,)')" >> "$PYJNIUS_INIT"
+          echo "            with open(conversion_pxi, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print('✅ Patched jnius_conversion.pxi')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 4. 清理 setup.py：移除所有 setup_requires 與 tests_require" >> "$PYJNIUS_INIT"
+          echo "        setup_py = join(build_dir, 'setup.py')" >> "$PYJNIUS_INIT"
+          echo "        if exists(setup_py):" >> "$PYJNIUS_INIT"
+          echo "            with open(setup_py, 'r') as f:" >> "$PYJNIUS_INIT"
+          echo "                content = f.read()" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace(\"setup_requires=['cython']\", \"setup_requires=[]\")" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace('setup_requires=[\"cython\"]', 'setup_requires=[]')" >> "$PYJNIUS_INIT"
+          echo "            content = content.replace(\"tests_require=['nose']\", \"tests_require=[]\")" >> "$PYJNIUS_INIT"
+          echo "            with open(setup_py, 'w') as f:" >> "$PYJNIUS_INIT"
+          echo "                f.write(content)" >> "$PYJNIUS_INIT"
+          echo "            print('✅ Patched setup.py')" >> "$PYJNIUS_INIT"
+          echo "" >> "$PYJNIUS_INIT"
+          echo "        # 5. 清理 setup.cfg（若有）" >> "$PYJNIUS_INIT"
+          echo "        setup_cfg = join(build_dir, 'setup.cfg')" >> "$PYJNIUS_INIT"
+          echo "        if exists(setup_cfg):" >> "$PYJNIUS_INIT"
+          echo "            os.remove(setup_cfg)" >> "$PYJNIUS_INIT"
+          echo "            print('✅ Removed setup.cfg')" >> "$PYJNIUS_INIT"
           echo "" >> "$PYJNIUS_INIT"
           echo "recipe = PyjniusRecipe()" >> "$PYJNIUS_INIT"
 
-          echo "✅ pyjnius recipe replaced with pre-patched source (echo method)."
+          echo "✅ pyjnius recipe created with self-contained, never-fail patches."
 
       - name: Build with Buildozer
         run: |
