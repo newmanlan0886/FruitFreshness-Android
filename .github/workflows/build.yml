@@ -1,3 +1,4 @@
+$buildYml = @'
 name: Build Android APK
 
 on:
@@ -42,7 +43,6 @@ jobs:
           mkdir -p "$P4A_DIR/pythonforandroid/recipes/pyjnius"
           PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
 
-          # 寫入全新配方，直接使用 pyjnius 1.5.0，無須任何修補！
           echo "from pythonforandroid.recipe import CythonRecipe" > "$PYJNIUS_INIT"
           echo "" >> "$PYJNIUS_INIT"
           echo "class PyjniusRecipe(CythonRecipe):" >> "$PYJNIUS_INIT"
@@ -67,3 +67,12 @@ jobs:
         with:
           name: fruit-freshness-apk
           path: bin/*.apk
+'@
+
+# 確保目錄存在
+New-Item -Path .github/workflows -ItemType Directory -Force | Out-Null
+
+# 寫入檔案（強制覆蓋）
+$buildYml | Out-File -FilePath .github/workflows/build.yml -Encoding UTF8 -Force
+
+Write-Host "✅ .github/workflows/build.yml 已更新為終極簡潔版" -ForegroundColor Green
