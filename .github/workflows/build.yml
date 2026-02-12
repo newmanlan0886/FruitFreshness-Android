@@ -15,13 +15,15 @@ jobs:
         with:
           python-version: '3.10'
 
+      # 🔥 關鍵修正：強制安裝 Cython 0.29.x（與 pyjnius 相容）
       - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y git zip unzip openjdk-17-jdk python3-pip \
             autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
             libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          pip install --user buildozer cython
+          pip install --user buildozer
+          pip install --user 'cython<3'   # 強制 Cython 0.29.x
 
       - name: Create .env file
         run: |
@@ -31,15 +33,18 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      # 🔥 終極穩健修復：逐行寫入 pyjnius 配方，完全避開 YAML heredoc 問題
-      - name: 🔧 FULL HOTFIX - Patch pyjnius recipe (robust version)
+      # 🔥 終極穩健修復：自訂 p4a + pyjnius 雙檔案修補 + 清除快取 + 強制 Cython 0.29
+      - name: 🔧 FULL HOTFIX - Patch pyjnius, force Cython<3, remove bad cache
         run: |
           P4A_DIR="/home/runner/work/p4a"
           rm -rf "$P4A_DIR"
           git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
           
+          # 刪除可能快取的 .eggs 目錄（避免 Cython 3.x 殘留）
+          rm -rf "$P4A_DIR/.eggs"
+          
+          # 逐行寫入 pyjnius 配方，植入 prebuild_arch 修補 + 強制 Cython 0.29
           PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
-          # 逐行寫入 __init__.py，保證 YAML 語法正確
           echo "from pythonforandroid.recipe import CythonRecipe" > "$PYJNIUS_INIT"
           echo "" >> "$PYJNIUS_INIT"
           echo "" >> "$PYJNIUS_INIT"
@@ -82,7 +87,7 @@ jobs:
           echo "" >> "$PYJNIUS_INIT"
           echo "recipe = PyjniusRecipe()" >> "$PYJNIUS_INIT"
           
-          echo "✅ pyjnius recipe fully patched with both file fixes (robust echo method)."
+          echo "✅ pyjnius recipe fully patched, .eggs removed, Cython<3 forced."
 
       - name: Build with Buildozer
         run: |
