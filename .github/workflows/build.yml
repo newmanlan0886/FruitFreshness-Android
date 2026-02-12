@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04   # ← 唯一修改：從 latest 改為 22.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -21,20 +21,6 @@ jobs:
             autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
             libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
           pip install --user buildozer cython
-      - name: Accept Android SDK licenses
-        run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          # 等待 SDK 被下載（最多等待 60 秒）
-          for i in {1..30}; do
-            if [ -d ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest ]; then
-              break
-            fi
-            echo "Waiting for Android SDK to be downloaded... ($i/30)"
-            sleep 2
-          done
-          # 接受所有許可證
-          yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
       - name: Create .env file
         run: |
           if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
