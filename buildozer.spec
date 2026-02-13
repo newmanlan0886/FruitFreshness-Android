@@ -18,6 +18,9 @@ android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
 
+# 🔥 關鍵：忽略 pyjnius 配方，永不編譯！
+p4a.ignore = pyjnius
+
 [buildozer]
 log_level = 2
 warn_on_root = 1
