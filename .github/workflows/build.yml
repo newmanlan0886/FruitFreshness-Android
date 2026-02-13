@@ -32,29 +32,34 @@ jobs:
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
 
-      - name: 🔥 ULTIMATE FIX - Use pyjnius 1.5.0
+      # 🔥 1. 完全刪除 Buildozer 預設下載的 p4a
+      - name: 🔥 Remove default p4a and use custom one
         run: |
-          P4A_DIR="/home/runner/work/p4a"
-          rm -rf "$P4A_DIR"
-          git clone -b master --single-branch https://github.com/kivy/python-for-android.git "$P4A_DIR"
-          mkdir -p "$P4A_DIR/pythonforandroid/recipes/pyjnius"
-          PYJNIUS_INIT="$P4A_DIR/pythonforandroid/recipes/pyjnius/__init__.py"
-          echo "from pythonforandroid.recipe import CythonRecipe" > "$PYJNIUS_INIT"
-          echo "" >> "$PYJNIUS_INIT"
-          echo "class PyjniusRecipe(CythonRecipe):" >> "$PYJNIUS_INIT"
-          echo "    version = '1.5.0'" >> "$PYJNIUS_INIT"
-          echo "    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'" >> "$PYJNIUS_INIT"
-          echo "    name = 'pyjnius'" >> "$PYJNIUS_INIT"
-          echo "    depends = ['python3', 'six']" >> "$PYJNIUS_INIT"
-          echo "    opt_depends = ['genericndk', 'genericndk_internal']" >> "$PYJNIUS_INIT"
-          echo "    call_hostpython_via_targetpython = False" >> "$PYJNIUS_INIT"
-          echo "    cython_version = '0.29.36'" >> "$PYJNIUS_INIT"
-          echo "" >> "$PYJNIUS_INIT"
-          echo "recipe = PyjniusRecipe()" >> "$PYJNIUS_INIT"
-          echo "✅ pyjnius 1.5.0 recipe installed."
+          rm -rf /home/runner/work/FruitFreshness-Android/FruitFreshness-Android/.buildozer/android/platform/python-for-android
+          
+          # 2. 克隆我們自己修好的 p4a（並確保使用 pyjnius 1.5.0 配方）
+          git clone -b master --single-branch https://github.com/kivy/python-for-android.git /home/runner/work/FruitFreshness-Android/FruitFreshness-Android/.buildozer/android/platform/python-for-android
+          
+          # 3. 直接覆蓋 pyjnius 配方為 1.5.0（寫入檔案）
+          mkdir -p /home/runner/work/FruitFreshness-Android/FruitFreshness-Android/.buildozer/android/platform/python-for-android/pythonforandroid/recipes/pyjnius
+          cat > /home/runner/work/FruitFreshness-Android/FruitFreshness-Android/.buildozer/android/platform/python-for-android/pythonforandroid/recipes/pyjnius/__init__.py << 'EOF'
+from pythonforandroid.recipe import CythonRecipe
+
+class PyjniusRecipe(CythonRecipe):
+    version = '1.5.0'
+    url = 'https://github.com/kivy/pyjnius/archive/{version}.tar.gz'
+    name = 'pyjnius'
+    depends = ['python3', 'six']
+    opt_depends = ['genericndk', 'genericndk_internal']
+    call_hostpython_via_targetpython = False
+    cython_version = '0.29.36'
+
+recipe = PyjniusRecipe()
+EOF
 
       - name: Build with Buildozer
         run: |
+          # 不要設定 android.p4a_dir，直接使用預設位置（已被我們替換）
           buildozer android debug
 
       - name: Upload APK
