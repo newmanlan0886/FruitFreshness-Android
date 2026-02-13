@@ -10,10 +10,18 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      # 🔥 關鍵修復：設定 JDK 17（Gradle 8.0.2 需要）
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Install system dependencies
         run: |
@@ -31,6 +39,11 @@ jobs:
           else
             cp .env.example .env 2>/dev/null || echo "GEMINI_API_KEY=dummy" > .env
           fi
+
+      # 🔥 可選：清理舊建置殘留，確保全新開始
+      - name: Clean old build artifacts
+        run: |
+          rm -rf ~/.buildozer/android/platform/build-*
 
       - name: Build with Buildozer
         run: |
