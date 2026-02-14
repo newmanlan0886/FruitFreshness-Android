@@ -3,7 +3,7 @@ title = 水果新鮮度診斷
 package.name = fruitfreshness
 package.domain = org.yourorg.fruitfreshness
 source.dir = .
-source.include_exts = py,png,jpg,kv,env
+source.include_exts = py,png,jpg,kv,ttf
 version = 0.1
 requirements = python3,kivy,Pillow,google-genai,python-dotenv
 orientation = portrait
@@ -18,7 +18,7 @@ android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
 
-# 🔥 關鍵：忽略 pyjnius 配方，永不編譯！
+# 🔥 忽略 pyjnius 配方，永不編譯
 p4a.ignore = pyjnius
 
 [buildozer]
