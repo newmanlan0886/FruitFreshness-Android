@@ -4,6 +4,7 @@ Android 版主程式 - Kivy 前端
 實作功能：攝影機預覽、拍照、Gemini AI 圖片分析
 字體：使用霞鶩文楷 (LXGWWenKai)
 功能：啟動時彈窗輸入 API Key
+修正：Android 檔案路徑問題
 """
 import os
 import threading
@@ -17,41 +18,52 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
+from kivy.utils import platform
 from PIL import Image as PILImage
 
 from modules.gemini_client import GeminiAnalyzer
 from modules.config import AppConfig
 
+# 🔥 根據平台取得正確的檔案路徑
+def get_font_path():
+    """根據執行平台取得字體檔案的正確路徑"""
+    if platform == 'android':
+        # Android 上，檔案在 APK 內的 assets 或根目錄
+        from android.storage import primary_external_storage_path
+        # 嘗試多個可能的路徑
+        possible_paths = [
+            '/data/data/org.yourorg.fruitfreshness/files/app/fonts/LXGWWenKai-Regular.ttf',
+            '/data/data/org.yourorg.fruitfreshness/files/fonts/LXGWWenKai-Regular.ttf',
+            '/sdcard/Android/data/org.yourorg.fruitfreshness/files/fonts/LXGWWenKai-Regular.ttf',
+            './fonts/LXGWWenKai-Regular.ttf',
+            'fonts/LXGWWenKai-Regular.ttf'
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                print(f"✅ 找到字體檔案: {path}")
+                return path
+        return None
+    else:
+        # 桌面版開發時使用相對路徑
+        return 'fonts/LXGWWenKai-Regular.ttf'
+
 # 🔥 註冊霞鶩文楷字體
 FONT_NAME = 'Roboto'  # 預設字體
-font_path = 'fonts/LXGWWenKai-Regular.ttf'
-if os.path.exists(font_path):
+font_path = get_font_path()
+if font_path and os.path.exists(font_path):
     try:
         LabelBase.register(name='LXGWWenKai', fn_regular=font_path)
         FONT_NAME = 'LXGWWenKai'
-        print(f"✅ 成功載入霞鶩文楷字體")
+        print(f"✅ 成功載入霞鶩文楷字體: {font_path}")
     except Exception as e:
         print(f"⚠️ 字體載入失敗，使用預設字體: {e}")
 else:
     print(f"⚠️ 字體檔案不存在: {font_path}，使用預設字體")
+    print("📌 在 Android 上，請確保字體已被打包進 APK")
 
 class ApiKeyPopup(Popup):
     """API Key 輸入彈窗"""
     def __init__(self, **kwargs):
-        
-            try:
-        # 清除原有的載入畫面
-        self.root_layout.clear_widgets()
-        
-        # 建立主佈局
-        root = BoxLayout(orientation='vertical', spacing=5, padding=10)
-        
-        # ... 其餘程式碼 ...
-        
-    except Exception as e:
-        print(f"❌ UI 建立錯誤: {e}")
-        self.show_error_and_exit(f"UI 初始化失敗：{str(e)}")
-    
         super().__init__(**kwargs)
         self.title = "設定 API Key"
         self.size_hint = (0.8, 0.4)
@@ -322,6 +334,8 @@ class FruitFreshnessAndroidApp(App):
         size = texture.size
         pixels = texture.pixels
         pil_image = PILImage.frombytes(mode='RGBA', size=size, data=pixels)
+        # Kivy 的 Texture 座標系與 PIL 不同，需要垂直翻轉
+        pil_image = pil_image.transpose(PILImage.FLIP_TOP_BOTTOM)
         pil_image = pil_image.convert('RGB')
 
         # 顯示預覽
