@@ -1,15 +1,12 @@
 # modules/gemini_client.py
 """
 Google Gemini API 客戶端（支援傳入 API Key）
+移除 dotenv 依賴，完全由 main.py 傳入 API Key
 """
 import os
 import time
 from typing import Optional
-from dotenv import load_dotenv
 from PIL import Image
-
-# 載入環境變數（作為備用）
-load_dotenv()
 
 # 嘗試導入新版本 google-genai
 try:
@@ -25,25 +22,23 @@ except ImportError:
         GENAI_NEW_VERSION = False
 
 class GeminiAnalyzer:
-    """封裝 Gemini API 呼叫，支援傳入 API Key"""
+    """封裝 Gemini API 呼叫，完全由外部傳入 API Key"""
     
-    def __init__(self, api_key: str = None, model_name: str = "gemini-1.5-flash", max_retries: int = 4):
+    def __init__(self, api_key: str = None, model_name: str = "gemini-2.5-flash", max_retries: int = 4):
         """
         初始化 Gemini 分析器
         
         Args:
-            api_key: Google Gemini API 金鑰（若為 None，則從環境變數讀取）
+            api_key: Google Gemini API 金鑰（必傳，不再從環境變數讀取）
             model_name: 使用的模型名稱
             max_retries: 最大重試次數
         """
         self.model_name = model_name
         self.max_retries = max_retries
         
-        # 優先使用傳入的 api_key，若無則從環境變數讀取
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY", "")
-        
-        if not self.api_key:
-            raise ValueError("❌ 未提供 API Key！請在啟動時輸入或在 .env 檔案中設定")
+        # 必須傳入 api_key
+        if not api_key:
+            raise ValueError("❌ 必須提供 API Key！請在啟動時輸入")
         
         if genai is None:
             raise ImportError("❌ 未安裝 google-genai 或 google-generativeai 套件")
@@ -51,12 +46,12 @@ class GeminiAnalyzer:
         # 根據版本初始化客戶端
         if GENAI_NEW_VERSION:
             # 新版本 API：直接建立 client
-            self.client = genai.Client(api_key=self.api_key)
+            self.client = genai.Client(api_key=api_key)
             self.GENAI_NEW_VERSION = True
             print(f"✅ Gemini 客戶端初始化成功（新版本），模型：{model_name}")
         else:
             # 舊版本 API：需 configure
-            genai.configure(api_key=self.api_key)
+            genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel(model_name)
             self.GENAI_NEW_VERSION = False
             print(f"✅ Gemini 客戶端初始化成功（舊版本），模型：{model_name}")
@@ -79,20 +74,19 @@ class GeminiAnalyzer:
                 err = str(e)
                 print(f"⚠️ Gemini API 錯誤 (attempt {attempt+1}/{self.max_retries}): {err}")
                 
-                # 重試策略：429（配額限制）/503（服務不可用）等待後重試
+                # 重試策略
                 if "429" in err or "Resource exhausted" in err or "503" in err or "UNAVAILABLE" in err:
                     wait = 2 ** attempt if "429" in err else 5
                     print(f"⏳ 等待 {wait} 秒後重試...")
                     time.sleep(wait)
                     continue
                 else:
-                    # 其他錯誤（如 404 model not found）直接拋出
                     raise e
         
         raise RuntimeError(f"❌ Gemini API 呼叫失敗，已重試 {self.max_retries} 次")
     
     def analyze_text(self, text: str) -> str:
-        """純文字分析（保留功能）"""
+        """純文字分析"""
         for attempt in range(self.max_retries):
             try:
                 if self.GENAI_NEW_VERSION:
