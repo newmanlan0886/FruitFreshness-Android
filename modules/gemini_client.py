@@ -5,9 +5,7 @@ Google Gemini API 客戶端（支援傳入 API Key）
 """
 import os
 import time
-# 正確的導入方式（新版本）
-import google.genai as genai
-from google.genai import types
+
 from typing import Optional
 from PIL import Image
 
