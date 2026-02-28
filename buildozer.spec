@@ -5,7 +5,7 @@ package.domain = org.yourorg.fruitfreshness
 source.dir = .
 source.include_exts = py,png,jpg,kv,ttf
 version = 0.1
-requirements = python3,kivy,Pillow,google-genai,protobuf,requests,urllib3,chardet,idna,certifi
+requirements = python3,kivy,Pillow,google-genai,protobuf,requests,urllib3,chardet,idna,certifi,grpcio
 orientation = portrait
 osx.python_version = 3
 osx.kivy_version = 2.2.1
@@ -18,7 +18,7 @@ android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
 
-# 🔥 忽略 pyjnius 配方
+# 🔥 忽略 pyjnius 配方，避免編譯錯誤
 p4a.ignore = pyjnius
 
 [buildozer]
