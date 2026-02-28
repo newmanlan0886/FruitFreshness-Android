@@ -1,11 +1,12 @@
 [app]
-title = 水果新鮮度診斷
-package.name = fruitfreshness
-package.domain = org.yourorg.fruitfreshness
+title = 水果新鮮度診斷測試
+package.name = fruitfreshnesstest
+package.domain = org.yourorg.fruitfreshnesstest
 source.dir = .
+source.main = test.py
 source.include_exts = py,png,jpg,kv,ttf
 version = 0.1
-requirements = python3,kivy,Pillow,google-genai,pydantic,typing_extensions,protobuf,requests,urllib3,chardet,idna,certifi
+requirements = python3,kivy
 orientation = portrait
 osx.python_version = 3
 osx.kivy_version = 2.2.1
@@ -17,8 +18,6 @@ android.accept_sdk_license = True
 android.permissions = CAMERA, INTERNET
 android.archs = arm64-v8a
 android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1
-
-# 🔥 忽略 pyjnius 配方，避免編譯錯誤
 p4a.ignore = pyjnius
 
 [buildozer]
