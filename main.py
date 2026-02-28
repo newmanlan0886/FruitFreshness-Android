@@ -21,7 +21,7 @@ from kivy.core.text import LabelBase
 from kivy.utils import platform
 from PIL import Image as PILImage
 
-from modules.gemini_client import GeminiAnalyzer
+from modules.gemini_rest import GeminiRESTClient as GeminiAnalyzer
 from modules.config import AppConfig
 
 # 🔥 根據平台取得正確的檔案路徑

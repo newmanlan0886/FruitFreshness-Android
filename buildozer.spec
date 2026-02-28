@@ -1,12 +1,11 @@
 [app]
-title = 水果新鮮度診斷測試
-package.name = fruitfreshnesstest
-package.domain = org.yourorg.fruitfreshnesstest
+title = 水果新鮮度診斷
+package.name = fruitfreshness
+package.domain = org.yourorg.fruitfreshness
 source.dir = .
-source.main = test.py
 source.include_exts = py,png,jpg,kv,ttf
 version = 0.1
-requirements = python3,kivy
+requirements = python3,kivy,Pillow,requests
 orientation = portrait
 osx.python_version = 3
 osx.kivy_version = 2.2.1
