@@ -4,7 +4,7 @@ Android 版主程式 - Kivy 前端
 實作功能：攝影機預覽、拍照、Gemini AI 圖片分析
 字體：使用霞鶩文楷 (LXGWWenKai)
 功能：啟動時彈窗輸入 API Key
-修正：Android 檔案路徑問題
+修正：API Key 輸入後閃退問題
 """
 import os
 import threading
@@ -18,48 +18,24 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
-from kivy.utils import platform
 from PIL import Image as PILImage
 
+# 改用 REST API 客戶端
 from modules.gemini_rest import GeminiRESTClient as GeminiAnalyzer
 from modules.config import AppConfig
 
-# 🔥 根據平台取得正確的檔案路徑
-def get_font_path():
-    """根據執行平台取得字體檔案的正確路徑"""
-    if platform == 'android':
-        # Android 上，檔案在 APK 內的 assets 或根目錄
-        from android.storage import primary_external_storage_path
-        # 嘗試多個可能的路徑
-        possible_paths = [
-            '/data/data/org.yourorg.fruitfreshness/files/app/fonts/LXGWWenKai-Regular.ttf',
-            '/data/data/org.yourorg.fruitfreshness/files/fonts/LXGWWenKai-Regular.ttf',
-            '/sdcard/Android/data/org.yourorg.fruitfreshness/files/fonts/LXGWWenKai-Regular.ttf',
-            './fonts/LXGWWenKai-Regular.ttf',
-            'fonts/LXGWWenKai-Regular.ttf'
-        ]
-        for path in possible_paths:
-            if os.path.exists(path):
-                print(f"✅ 找到字體檔案: {path}")
-                return path
-        return None
-    else:
-        # 桌面版開發時使用相對路徑
-        return 'fonts/LXGWWenKai-Regular.ttf'
-
-# 🔥 註冊霞鶩文楷字體
+# 註冊霞鶩文楷字體
 FONT_NAME = 'Roboto'  # 預設字體
-font_path = get_font_path()
-if font_path and os.path.exists(font_path):
+font_path = 'fonts/LXGWWenKai-Regular.ttf'
+if os.path.exists(font_path):
     try:
         LabelBase.register(name='LXGWWenKai', fn_regular=font_path)
         FONT_NAME = 'LXGWWenKai'
-        print(f"✅ 成功載入霞鶩文楷字體: {font_path}")
+        print(f"✅ 成功載入霞鶩文楷字體")
     except Exception as e:
         print(f"⚠️ 字體載入失敗，使用預設字體: {e}")
 else:
     print(f"⚠️ 字體檔案不存在: {font_path}，使用預設字體")
-    print("📌 在 Android 上，請確保字體已被打包進 APK")
 
 class ApiKeyPopup(Popup):
     """API Key 輸入彈窗"""
@@ -67,7 +43,7 @@ class ApiKeyPopup(Popup):
         super().__init__(**kwargs)
         self.title = "設定 API Key"
         self.size_hint = (0.8, 0.4)
-        self.auto_dismiss = False  # 禁止點擊外部關閉
+        self.auto_dismiss = False
         
         # 主佈局
         content = BoxLayout(orientation='vertical', spacing=10, padding=20)
@@ -84,7 +60,7 @@ class ApiKeyPopup(Popup):
         self.api_input = TextInput(
             hint_text='輸入 API Key...',
             multiline=False,
-            password=True,  # 隱藏輸入
+            password=True,
             font_name=FONT_NAME,
             size_hint_y=0.3
         )
@@ -157,13 +133,10 @@ class FruitFreshnessAndroidApp(App):
         self.img_preview = None
         self.result_text = None
         self.status = None
+        self.root_layout = None
     
     def build(self):
         """建立 UI（先顯示 API Key 彈窗）"""
-        # 顯示 API Key 輸入彈窗
-        self.show_api_key_popup()
-        
-        # 建立主佈局（先返回空，等 API Key 設定完成後再建立實際 UI）
         self.root_layout = BoxLayout(orientation='vertical')
         
         # 顯示載入中畫面
@@ -173,6 +146,9 @@ class FruitFreshnessAndroidApp(App):
             font_size='20sp'
         )
         self.root_layout.add_widget(loading_label)
+        
+        # 延遲顯示彈窗，確保 UI 已建立
+        Clock.schedule_once(lambda dt: self.show_api_key_popup(), 0.1)
         
         return self.root_layout
     
@@ -194,7 +170,7 @@ class FruitFreshnessAndroidApp(App):
         self.api_key = api_key
         print(f"✅ 已取得 API Key: {api_key[:5]}...")
         
-        # 初始化 Gemini
+        # 初始化 Gemini（用 try-except 包住）
         try:
             self.gemini = GeminiAnalyzer(api_key=self.api_key, model_name="gemini-2.5-flash")
             print("✅ Gemini 初始化成功")
@@ -208,6 +184,9 @@ class FruitFreshnessAndroidApp(App):
     
     def show_error_and_exit(self, message):
         """顯示錯誤並退出"""
+        # 清除原有的載入畫面
+        self.root_layout.clear_widgets()
+        
         content = BoxLayout(orientation='vertical', padding=10)
         content.add_widget(Label(
             text=message,
@@ -222,20 +201,9 @@ class FruitFreshnessAndroidApp(App):
             background_color=(0.8, 0.2, 0.2, 1)
         )
         content.add_widget(close_btn)
+        close_btn.bind(on_press=lambda x: self.stop())
         
-        error_popup = Popup(
-            title='錯誤',
-            content=content,
-            size_hint=(0.8, 0.4),
-            auto_dismiss=False
-        )
-        
-        close_btn.bind(on_press=lambda x: (
-            error_popup.dismiss(),
-            Clock.schedule_once(lambda dt: self.stop(), 0.1)
-        ))
-        
-        error_popup.open()
+        self.root_layout.add_widget(content)
     
     def build_main_ui(self):
         """建立主要 UI（在取得 API Key 後呼叫）"""
@@ -252,7 +220,7 @@ class FruitFreshnessAndroidApp(App):
             font_size='20sp',
             bold=True,
             font_name=FONT_NAME,
-            color=(0.2, 0.6, 0.2, 1)  # 深綠色標題
+            color=(0.2, 0.6, 0.2, 1)
         )
         root.add_widget(title)
 
@@ -266,7 +234,7 @@ class FruitFreshnessAndroidApp(App):
             text="📸 拍照分析",
             size_hint=(1, 0.15),
             font_name=FONT_NAME,
-            background_color=(0.2, 0.8, 0.2, 1),  # 綠色按鈕
+            background_color=(0.2, 0.8, 0.2, 1),
             color=(1, 1, 1, 1)
         )
         btn_capture.bind(on_press=self.capture_and_analyze)
@@ -316,7 +284,6 @@ class FruitFreshnessAndroidApp(App):
         )
         root.add_widget(self.status)
 
-        # 替換 root_layout 的內容
         self.root_layout.add_widget(root)
 
     def capture_and_analyze(self, instance):
@@ -331,19 +298,21 @@ class FruitFreshnessAndroidApp(App):
             return
 
         # 將 Kivy Texture 轉為 PIL Image
-        size = texture.size
-        pixels = texture.pixels
-        pil_image = PILImage.frombytes(mode='RGBA', size=size, data=pixels)
-        # Kivy 的 Texture 座標系與 PIL 不同，需要垂直翻轉
-        pil_image = pil_image.transpose(PILImage.FLIP_TOP_BOTTOM)
-        pil_image = pil_image.convert('RGB')
+        try:
+            size = texture.size
+            pixels = texture.pixels
+            pil_image = PILImage.frombytes(mode='RGBA', size=size, data=pixels)
+            pil_image = pil_image.transpose(PILImage.FLIP_TOP_BOTTOM)
+            pil_image = pil_image.convert('RGB')
 
-        # 顯示預覽
-        self.img_preview.texture = texture
-        self.update_status("📷 拍照完成，正在分析...")
+            # 顯示預覽
+            self.img_preview.texture = texture
+            self.update_status("📷 拍照完成，正在分析...")
 
-        # 非同步呼叫 Gemini API
-        threading.Thread(target=self._analyze_thread, args=(pil_image,), daemon=True).start()
+            # 非同步呼叫 Gemini API
+            threading.Thread(target=self._analyze_thread, args=(pil_image,), daemon=True).start()
+        except Exception as e:
+            self.update_status(f"❌ 處理圖片失敗: {str(e)}")
 
     def _analyze_thread(self, image: PILImage.Image):
         """在背景執行 Gemini 分析"""
@@ -373,7 +342,8 @@ class FruitFreshnessAndroidApp(App):
 
     def update_status(self, message: str):
         """更新狀態列"""
-        self.status.text = message
+        if self.status:
+            self.status.text = message
 
 if __name__ == '__main__':
     FruitFreshnessAndroidApp().run()
