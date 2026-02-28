@@ -1,15 +1,8 @@
-# modules/gemini_client.py
-"""
-Google Gemini API 客戶端
-"""
 import os
-import google.genai as genai
 import time
-import sys
 from PIL import Image
-from google.genai import types
 
-# 嘗試導入 google-genai
+# 嘗試導入 google-genai，失敗時記錄錯誤但不崩潰
 try:
     import google.genai as genai
     from google.genai import types
@@ -18,7 +11,6 @@ try:
 except ImportError as e:
     GENAI_AVAILABLE = False
     print(f"❌ 無法導入 google.genai: {e}")
-    print(f"Python path: {sys.path}")
     genai = None
 
 class GeminiAnalyzer:
